@@ -1,192 +1,470 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sistema de Análise de Vistorias</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="vistoriaScript.js"></script>
 
-<link rel="stylesheet" href="styles.css">
-
-</head>
-<body>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
     <header>
-        <div class="container">
-            <h1>Sistema de Análise de Vistorias</h1>
-            <p>Ferramenta para análise e monitoramento de vistorias e fiscalizações</p>
-        </div>
+      <div class="container">
+        <h1>Sistema de Análise de Vistorias</h1>
+        <p>
+          Ferramenta para análise e monitoramento de vistorias e fiscalizações
+        </p>
+      </div>
     </header>
 
     <div class="container">
-        <section class="upload-section">
-            <h2>Importação de Dados</h2>
-            <p>Selecione o arquivo CSV com os dados das vistorias para gerar análises detalhadas e visualizações</p>
-            <div class="file-upload">
-                <label for="csvFile">Selecionar Arquivo CSV</label>
-                <input type="file" id="csvFile" accept=".csv" />
-                <div class="file-name" id="fileName">Nenhum arquivo selecionado</div>
-            </div>
-        </section>
+      <section class="upload-section">
+        <h2>Importação de Dados</h2>
+        <p>
+          Selecione o arquivo CSV com os dados das vistorias para gerar análises
+          detalhadas e visualizações
+        </p>
+        <div class="file-upload">
+          <label for="csvFile">Selecionar Arquivo CSV</label>
+          <input type="file" id="csvFile" accept=".csv" />
+          <div class="file-name" id="fileName">Nenhum arquivo selecionado</div>
+        </div>
+      </section>
 
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Processando dados, por favor aguarde...</p>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Processando dados, por favor aguarde...</p>
+      </div>
+
+      <section class="report-section" id="reportSection">
+        <div class="main-tabs">
+          <button class="main-tab-btn active" onclick="openMainTab(event, 'vistoriaPanel')">
+            Painel de Controle de Vistorias
+          </button>
+          <button class="main-tab-btn" onclick="openMainTab(event, 'projetoPanel')">
+            Painel de Controle de Projetos
+          </button>
+        </div>
+        
+        <div id="vistoriaPanel" class="main-tab-content active">
+          <h2>Painel de Controle de Vistorias</h2>
+
+          <div class="summary-block">
+            <div class="summary-card">
+              <h3>Registros de Vistorias</h3>
+              <div class="number" id="totalRegistros">93.834</div>
+            </div>
+            <div class="summary-card">
+              <h3>Protocolos Únicos</h3>
+              <div class="number" id="totalProtocolos">2.214</div>
+            </div>
+            <div class="summary-card">
+              <h3>Vistorias Realizadas</h3>
+              <div class="number" id="totalRealizadas">1.307</div>
+            </div>
+            <div class="summary-card">
+              <h3>Vistorias Pendentes</h3>
+              <div class="number" id="totalPendentes">907</div>
+            </div>
+          </div>
+
+          <div class="summary-block">
+            <div class="summary-card">
+              <h3>Funcionamento</h3>
+              <div class="number" id="totalFuncionamento">1.037</div>
+            </div>
+            <div class="summary-card">
+              <h3>Habite-se</h3>
+              <div class="number" id="totalHabitese">237</div>
+            </div>
+            <div class="summary-card">
+              <h3>Fiscalização</h3>
+              <div class="number" id="totalFiscalizacao">33</div>
+            </div>
+          </div>
+          
+          <div class="summary-block">
+            <div class="summary-card">
+              <h3>Alteração de Dados</h3>
+              <div class="number" id="totalAlteracaoDados">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Alteração Tipo Serviço</h3>
+              <div class="number" id="totalAlteracaoTipo">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Aprovado</h3>
+              <div class="number" id="totalAprovado">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Cadastro</h3>
+              <div class="number" id="totalCadastro">0</div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="projetoPanel" class="main-tab-content">
+          <h2>Painel de Controle de Projetos</h2>
+
+          <div class="summary-block">
+            <div class="summary-card">
+              <h3>Registros de Projetos</h3>
+              <div class="number" id="totalRegistrosProjetos">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Protocolos Únicos</h3>
+              <div class="number" id="totalProtocolosProjetos">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Projetos Analisados</h3>
+              <div class="number" id="totalProjetosAnalisados">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Projetos Pendentes</h3>
+              <div class="number" id="totalProjetosPendentes">0</div>
+            </div>
+          </div>
+
+          <div class="summary-block">
+            <div class="summary-card">
+              <h3>Análise de Projeto</h3>
+              <div class="number" id="totalAnaliseProjeto">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Substituição de Projeto</h3>
+              <div class="number" id="totalSubstituicaoProjeto">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Outros Serviços</h3>
+              <div class="number" id="totalOutrosServicos">0</div>
+            </div>
+          </div>
+          
+          <div class="summary-block">
+            <div class="summary-card">
+              <h3>Alteração de Dados</h3>
+              <div class="number" id="totalAlteracaoDadosProjeto">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Alteração Tipo Serviço</h3>
+              <div class="number" id="totalAlteracaoTipoProjeto">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Aprovado</h3>
+              <div class="number" id="totalAprovadoProjeto">0</div>
+            </div>
+            <div class="summary-card">
+              <h3>Cadastro</h3>
+              <div class="number" id="totalCadastroProjeto">0</div>
+            </div>
+          </div>
         </div>
 
-        <section class="report-section" id="reportSection">
-            <h2>Painel de Controle de Vistorias</h2>
+        <div class="tab-container">
+          <div class="tabs">
+            <button
+              class="tab-btn active"
+              onclick="openTab(event, 'responsaveis')"
+            >
+              Equipe Técnica
+            </button>
+            <button class="tab-btn" onclick="openTab(event, 'graficos')">
+              Visualizações
+            </button>
+            <button class="tab-btn" onclick="openTab(event, 'analise')">
+              Análise Avançada
+            </button>
+          </div>
+
+          <div id="responsaveis" class="tab-content active">
+            <h3>Desempenho da Equipe Técnica</h3>
             
-            <div class="summary-block">
-                <div class="summary-card">
-                    <h3>Registros de Vistorias</h3>
-                    <div class="number" id="totalRegistros">4.289</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Protocolos Únicos</h3>
-                    <div class="number" id="totalProtocolos">640</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Vistorias Realizadas</h3>
-                    <div class="number" id="totalRealizadas">640</div>
-                </div>
-                <div class="summary-card">
-                    <h3>Vistorias Pendentes</h3>
-                    <div class="number" id="totalPendentes">0</div>
-                </div>
+            <!-- Visível apenas no painel de vistorias -->
+            <div id="equipeTecnicaVistorias" class="equipe-tecnica-panel active">
+              <p>
+                Distribuição de vistorias por técnico responsável, classificadas
+                por tipo de procedimento
+              </p>
+              <table id="responsaveisTable">
+                <thead>
+                  <tr>
+                    <th>Técnico Responsável</th>
+                    <th>Total de Vistorias</th>
+                    <th>Funcionamento</th>
+                    <th>Habite-se</th>
+                    <th>Fiscalização</th>
+                  </tr>
+                </thead>
+                <tbody id="responsaveisBody">
+                  <tr>
+                    <td colspan="5">Carregando dados...</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             
-            <div class="summary-block">
-                <div class="summary-card">
-                    <h3>Funcionamento</h3>
-                    <div class="number" id="totalFuncionamento">3.171</div>
+            <!-- Visível apenas no painel de projetos -->
+            <div id="equipeTecnicaProjetos" class="equipe-tecnica-panel">
+              <p>
+                Distribuição de projetos por técnico responsável, classificadas
+                por tipo de análise
+              </p>
+              <table id="responsaveisProjetosTable">
+                <thead>
+                  <tr>
+                    <th>Técnico Responsável</th>
+                    <th>Total de Projetos</th>
+                    <th>Análise de Projeto</th>
+                    <th>Substituição de Projeto</th>
+                    <th>Outros</th>
+                  </tr>
+                </thead>
+                <tbody id="responsaveisProjetosBody">
+                  <tr>
+                    <td colspan="5">Carregando dados...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="graficos" class="tab-content">
+            <!-- Visível apenas no painel de vistorias -->
+            <div id="graficosVistorias" class="graficos-panel active">
+              <div class="chart-tabs">
+                <button
+                  class="chart-tab-btn active"
+                  onclick="openChartTab(event, 'responsaveis-chart')"
+                >
+                  Distribuição por Técnico
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTab(event, 'tipos-chart')"
+                >
+                  Categorias de Vistoria
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTab(event, 'status-chart')"
+                >
+                  Status de Execução
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTab(event, 'tendencia-chart')"
+                >
+                  Evolução Temporal
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTab(event, 'producao-chart')"
+                >
+                  Produtividade Individual
+                </button>
+              </div>
+
+              <div id="responsaveis-chart" class="chart-tab-content active">
+                <h3>Ranking de Vistorias por Técnico Responsável</h3>
+                <div class="chart-container">
+                  <canvas id="responsaveisChart"></canvas>
                 </div>
-                <div class="summary-card">
-                    <h3>Habite-se</h3>
-                    <div class="number" id="totalHabitese">783</div>
+              </div>
+
+              <div id="tipos-chart" class="chart-tab-content">
+                <h3>Distribuição por Categoria de Vistoria</h3>
+                <div class="chart-container">
+                  <canvas id="tiposChart"></canvas>
                 </div>
-                <div class="summary-card">
-                    <h3>Fiscalização</h3>
-                    <div class="number" id="totalFiscalizacao">292</div>
+              </div>
+
+              <div id="status-chart" class="chart-tab-content">
+                <h3>Status de Execução das Vistorias</h3>
+                <div class="chart-container">
+                  <canvas id="statusChart"></canvas>
                 </div>
+              </div>
+
+              <div id="tendencia-chart" class="chart-tab-content">
+                <h3>Evolução de Vistorias ao Longo do Tempo</h3>
+                <div class="chart-options">
+                  <label>
+                    <input
+                      type="radio"
+                      name="periodo"
+                      value="mes"
+                      checked
+                      onclick="renderizarGraficoTendencia('mes')"
+                    />
+                    Visualização Mensal
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="periodo"
+                      value="ano"
+                      onclick="renderizarGraficoTendencia('ano')"
+                    />
+                    Visualização Anual
+                  </label>
+                </div>
+                <div class="chart-container">
+                  <canvas id="tendenciaChart"></canvas>
+                </div>
+              </div>
+
+              <div id="producao-chart" class="chart-tab-content">
+                <h3>Análise de Produtividade Individual</h3>
+                <div class="chart-options">
+                  <select
+                    id="producaoResponsavelSelect"
+                    onchange="renderizarGraficoProducao()"
+                  >
+                    <option value="">Selecione um técnico responsável</option>
+                  </select>
+                </div>
+                <div class="chart-container">
+                  <canvas id="producaoChart"></canvas>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Visível apenas no painel de projetos -->
+            <div id="graficosProjetos" class="graficos-panel">
+              <div class="chart-tabs">
+                <button
+                  class="chart-tab-btn active"
+                  onclick="openChartTabProjetos(event, 'responsaveis-projetos-chart')"
+                >
+                  Distribuição por Técnico
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTabProjetos(event, 'tipos-projetos-chart')"
+                >
+                  Categorias de Projeto
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTabProjetos(event, 'status-projetos-chart')"
+                >
+                  Status de Execução
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTabProjetos(event, 'tendencia-projetos-chart')"
+                >
+                  Evolução Temporal
+                </button>
+                <button
+                  class="chart-tab-btn"
+                  onclick="openChartTabProjetos(event, 'producao-projetos-chart')"
+                >
+                  Produtividade Individual
+                </button>
+              </div>
+
+              <div id="responsaveis-projetos-chart" class="chart-tab-content active">
+                <h3>Ranking de Projetos por Técnico Responsável</h3>
+                <div class="chart-container">
+                  <canvas id="responsaveisProjetosChart"></canvas>
+                </div>
+              </div>
+
+              <div id="tipos-projetos-chart" class="chart-tab-content">
+                <h3>Distribuição por Categoria de Projeto</h3>
+                <div class="chart-container">
+                  <canvas id="tiposProjetosChart"></canvas>
+                </div>
+              </div>
+
+              <div id="status-projetos-chart" class="chart-tab-content">
+                <h3>Status de Execução dos Projetos</h3>
+                <div class="chart-container">
+                  <canvas id="statusProjetosChart"></canvas>
+                </div>
+              </div>
+
+              <div id="tendencia-projetos-chart" class="chart-tab-content">
+                <h3>Evolução de Projetos ao Longo do Tempo</h3>
+                <div class="chart-options">
+                  <label>
+                    <input
+                      type="radio"
+                      name="periodoProjetos"
+                      value="mes"
+                      checked
+                      onclick="renderizarGraficoTendenciaProjetos('mes')"
+                    />
+                    Visualização Mensal
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="periodoProjetos"
+                      value="ano"
+                      onclick="renderizarGraficoTendenciaProjetos('ano')"
+                    />
+                    Visualização Anual
+                  </label>
+                </div>
+                <div class="chart-container">
+                  <canvas id="tendenciaProjetosChart"></canvas>
+                </div>
+              </div>
+
+              <div id="producao-projetos-chart" class="chart-tab-content">
+                <h3>Análise de Produtividade Individual</h3>
+                <div class="chart-options">
+                  <select
+                    id="producaoResponsavelProjetosSelect"
+                    onchange="renderizarGraficoProducaoProjetos()"
+                  >
+                    <option value="">Selecione um técnico responsável</option>
+                  </select>
+                </div>
+                <div class="chart-container">
+                  <canvas id="producaoProjetosChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="analise" class="tab-content">
+            <h3>Análise de Registros Sem Técnico Atribuído</h3>
+            <p>
+              Esta análise identifica procedimentos sem técnico atribuído e
+              sugere responsáveis com base em padrões de atribuição anteriores
+            </p>
+            <div id="analiseDetalhada">
+              <p>Carregando análise...</p>
             </div>
 
-            <div class="tab-container">
-                <div class="tabs">
-                    <button class="tab-btn active" onclick="openTab(event, 'responsaveis')">Equipe Técnica</button>
-                    <button class="tab-btn" onclick="openTab(event, 'graficos')">Visualizações</button>
-                    <button class="tab-btn" onclick="openTab(event, 'analise')">Análise Avançada</button>
-                </div>
-
-                <div id="responsaveis" class="tab-content active">
-                    <h3>Desempenho da Equipe Técnica</h3>
-                    <p>Distribuição de vistorias por técnico responsável, classificadas por tipo de procedimento</p>
-                    <table id="responsaveisTable">
-                        <thead>
-                            <tr>
-                                <th>Técnico Responsável</th>
-                                <th>Total de Vistorias</th>
-                                <th>Funcionamento</th>
-                                <th>Habite-se</th>
-                                <th>Fiscalização</th>
-                            </tr>
-                        </thead>
-                        <tbody id="responsaveisBody">
-                            <tr>
-                                <td colspan="5">Carregando dados...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div id="graficos" class="tab-content">
-                    <div class="chart-tabs">
-                        <button class="chart-tab-btn active" onclick="openChartTab(event, 'responsaveis-chart')">Distribuição por Técnico</button>
-                        <button class="chart-tab-btn" onclick="openChartTab(event, 'tipos-chart')">Categorias de Vistoria</button>
-                        <button class="chart-tab-btn" onclick="openChartTab(event, 'status-chart')">Status de Execução</button>
-                        <button class="chart-tab-btn" onclick="openChartTab(event, 'tendencia-chart')">Evolução Temporal</button>
-                        <button class="chart-tab-btn" onclick="openChartTab(event, 'producao-chart')">Produtividade Individual</button>
-                    </div>
-                    
-                    <div id="responsaveis-chart" class="chart-tab-content active">
-                        <h3>Ranking de Vistorias por Técnico Responsável</h3>
-                        <div class="chart-container">
-                            <canvas id="responsaveisChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div id="tipos-chart" class="chart-tab-content">
-                        <h3>Distribuição por Categoria de Vistoria</h3>
-                        <div class="chart-container">
-                            <canvas id="tiposChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div id="status-chart" class="chart-tab-content">
-                        <h3>Status de Execução das Vistorias</h3>
-                        <div class="chart-container">
-                            <canvas id="statusChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div id="tendencia-chart" class="chart-tab-content">
-                        <h3>Evolução de Vistorias ao Longo do Tempo</h3>
-                        <div class="chart-options">
-                            <label>
-                                <input type="radio" name="periodo" value="mes" checked onclick="renderizarGraficoTendencia('mes')">
-                                Visualização Mensal
-                            </label>
-                            <label>
-                                <input type="radio" name="periodo" value="ano" onclick="renderizarGraficoTendencia('ano')">
-                                Visualização Anual
-                            </label>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="tendenciaChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <div id="producao-chart" class="chart-tab-content">
-                        <h3>Análise de Produtividade Individual</h3>
-                        <div class="chart-options">
-                            <select id="producaoResponsavelSelect" onchange="renderizarGraficoProducao()">
-                                <option value="">Selecione um técnico responsável</option>
-                            </select>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="producaoChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="analise" class="tab-content">
-                    <h3>Análise de Registros Sem Técnico Atribuído</h3>
-                    <p>Esta análise identifica procedimentos sem técnico atribuído e sugere responsáveis com base em padrões de atribuição anteriores</p>
-                    <div id="analiseDetalhada">
-                        <p>Carregando análise...</p>
-                    </div>
-                    
-                    <h3>Sugestão de Responsáveis para Registros não Atribuídos</h3>
-                    <p>Baseado em análise de padrões de atribuição por protocolo, região e tipo de vistoria</p>
-                    <table id="potenciaisTable">
-                        <thead>
-                            <tr>
-                                <th>Técnico Sugerido</th>
-                                <th>Correspondências Encontradas</th>
-                            </tr>
-                        </thead>
-                        <tbody id="potenciaisBody">
-                            <tr>
-                                <td colspan="2">Carregando dados...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </section>
+            <h3>Sugestão de Responsáveis para Registros não Atribuídos</h3>
+            <p>
+              Baseado em análise de padrões de atribuição por protocolo, região
+              e tipo de vistoria
+            </p>
+            <table id="potenciaisTable">
+              <thead>
+                <tr>
+                  <th>Técnico Sugerido</th>
+                  <th>Correspondências Encontradas</th>
+                </tr>
+              </thead>
+              <tbody id="potenciaisBody">
+                <tr>
+                  <td colspan="2">Carregando dados...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
-
-</body>
+    <script src="vistoriaScript.js"></script>
+  </body>
 </html>

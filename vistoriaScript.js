@@ -1,5 +1,6 @@
     // Variáveis para armazenar os dados processados
 let dadosProcessados = {
+    // Dados para vistorias
     totalRegistros: 0,
     totalProtocolos: 0,
     vistoriasRealizadas: 0,
@@ -10,15 +11,100 @@ let dadosProcessados = {
     tiposVistoria: {},
     statusAndamento: {},
     tendenciaTemporal: {},
-    producaoPorResponsavel: {}
+    producaoPorResponsavel: {},
+    protocolosPorResponsavel: {}, // Objeto para armazenar os protocolos atendidos por cada responsável
+    
+    // Novos contadores para tipos de serviços adicionais de vistorias
+    servicosAdicionais: {
+        "ALTERAÇÃO DE DADOS DO SERVIÇO": 0,
+        "ALTERAÇÃO DE TIPO DE SERVIÇO": 0,
+        "APROVADO": 0,
+        "CADASTRO": 0,
+        "DESPACHO DE ARQUIVO": 0,
+        "COMISSÃO TÉCNICA": 0,
+        "SOLICITADA ISENÇÃO DE TAXA": 0,
+        "PROCEDIMENTOS/OBSERVAÇÃO": 0,
+        "SOLICITOU RETORNO PARA INSPEÇÃO": 0
+    },
+    
+    // Dados para projetos
+    totalRegistrosProjetos: 0,
+    totalProtocolosProjetos: 0,
+    projetosAnalisados: 0,
+    projetosPendentes: 0,
+    responsaveisProjetos: [], // Lista de responsáveis por projetos
+    responsaveisProjetosSemUsuario: 0,
+    tiposProjeto: {
+        "ANÁLISE DE PROJETO": 0,
+        "SUBSTITUIÇÃO DE PROJETO": 0,
+        "OUTROS": 0
+    },
+    protocolosPorResponsavelProjeto: {}, // Objeto para armazenar os protocolos de projeto por responsável
+    
+    // Contadores para tipos de serviços adicionais de projetos
+    servicosAdicionaisProjeto: {
+        "ALTERAÇÃO DE DADOS DO SERVIÇO": 0,
+        "ALTERAÇÃO DE TIPO DE SERVIÇO": 0,
+        "APROVADO": 0,
+        "CADASTRO": 0,
+        "DESPACHO DE ARQUIVO": 0,
+        "COMISSÃO TÉCNICA": 0,
+        "SOLICITADA ISENÇÃO DE TAXA": 0,
+        "PROCEDIMENTOS/OBSERVAÇÃO": 0,
+        "SOLICITOU RETORNO PARA INSPEÇÃO": 0
+    }
 };
 
-// Referências aos gráficos
+// Referências aos gráficos de vistorias
 let responsaveisChart = null;
 let tiposChart = null;
 let statusChart = null;
 let tendenciaChart = null;
 let producaoChart = null;
+
+// Referências aos gráficos de projetos
+let responsaveisProjetosChart = null;
+let tiposProjetosChart = null;
+let statusProjetosChart = null;
+let tendenciaProjetosChart = null;
+let producaoProjetosChart = null;
+
+// Evento de inicialização para configurar a interface
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("Documento carregado, configurando interface");
+    
+    // Garantir que os painéis de equipe técnica estão configurados corretamente
+    const equipeTecnicaVistorias = document.getElementById('equipeTecnicaVistorias');
+    const equipeTecnicaProjetos = document.getElementById('equipeTecnicaProjetos');
+    
+    if (equipeTecnicaVistorias) equipeTecnicaVistorias.classList.add('active');
+    if (equipeTecnicaProjetos) equipeTecnicaProjetos.classList.remove('active');
+    
+    // Garantir que os painéis de gráficos estão configurados corretamente
+    const graficosVistorias = document.getElementById('graficosVistorias');
+    const graficosProjetos = document.getElementById('graficosProjetos');
+    
+    if (graficosVistorias) graficosVistorias.classList.add('active');
+    if (graficosProjetos) graficosProjetos.classList.remove('active');
+    
+    // Adicionar listeners para os botões das abas principais
+    document.querySelectorAll('.main-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            console.log("Botão de aba principal clicado:", this.textContent);
+            
+            // Forçar um refresh dos gráficos se a aba de gráficos estiver ativa
+            if (document.getElementById('graficos').classList.contains('active')) {
+                setTimeout(() => {
+                    if (document.getElementById('vistoriaPanel').classList.contains('active')) {
+                        renderizarGraficos();
+                    } else if (document.getElementById('projetoPanel').classList.contains('active')) {
+                        renderizarGraficosProjetos();
+                    }
+                }, 100);
+            }
+        });
+    });
+});
 
 // Event listener para quando um arquivo é selecionado
 document.getElementById('csvFile').addEventListener('change', function(e) {
@@ -169,6 +255,84 @@ function isVistoria(servico) {
     return termosVistoria.some(termo => servicoNormalizado.includes(termo));
 }
 
+// Função para verificar se um serviço é relacionado a projetos
+function isProjeto(servico) {
+    if (!servico || typeof servico !== 'string') return false;
+    
+    // Normaliza o texto para facilitar a comparação
+    const servicoNormalizado = normalizarString(servico.toUpperCase().trim());
+    
+    // Lista de termos que indicam projetos
+    const termosProjeto = [
+        "PROJETO",
+        "ANÁLISE",
+        "ANALISE",
+        "SUBSTITUIÇÃO",
+        "SUBSTITUICAO",
+        "ENTREGUE AO SOLICITANTE COM EXIGÊNCIA",
+        "ENTREGUE AO SOLICITANTE COM EXIGENCIA"
+    ];
+    
+    // Verifica se o serviço contém algum dos termos de projeto
+    return termosProjeto.some(termo => servicoNormalizado.includes(termo));
+}
+
+// Função para verificar se um status de andamento é de projeto entregue com exigência
+function isProjetoEntregueComExigencia(andamento) {
+    if (!andamento || typeof andamento !== 'string') return false;
+    
+    // Normaliza o texto para facilitar a comparação
+    const andamentoNormalizado = normalizarString(andamento.toUpperCase().trim());
+    
+    return andamentoNormalizado.includes("ENTREGUE AO SOLICITANTE COM EXIGÊNCIA") || 
+           andamentoNormalizado.includes("ENTREGUE AO SOLICITANTE COM EXIGENCIA");
+}
+
+// Função para determinar o tipo de projeto
+function getTipoProjeto(servico) {
+    if (!servico || typeof servico !== 'string') return "OUTROS";
+    
+    const servicoNormalizado = normalizarString(servico.toUpperCase().trim());
+    
+    if (servicoNormalizado.includes("ANÁLISE DE PROJETO") || servicoNormalizado.includes("ANALISE DE PROJETO")) {
+        return "ANÁLISE DE PROJETO";
+    } else if (servicoNormalizado.includes("SUBSTITUIÇÃO DE PROJETO") || servicoNormalizado.includes("SUBSTITUICAO DE PROJETO")) {
+        return "SUBSTITUIÇÃO DE PROJETO";
+    } else {
+        return "OUTROS";
+    }
+}
+
+// Função para identificar serviços adicionais
+function identificarServicoAdicional(servico) {
+    if (!servico || typeof servico !== 'string') return null;
+    
+    // Normaliza o texto para facilitar a comparação
+    const servicoNormalizado = normalizarString(servico.toUpperCase().trim());
+    
+    // Lista de serviços adicionais para verificar
+    const servicosParaVerificar = [
+        "ALTERAÇÃO DE DADOS DO SERVIÇO",
+        "ALTERAÇÃO DE TIPO DE SERVIÇO",
+        "APROVADO",
+        "CADASTRO",
+        "DESPACHO DE ARQUIVO",
+        "COMISSÃO TÉCNICA",
+        "SOLICITADA ISENÇÃO DE TAXA",
+        "PROCEDIMENTOS/OBSERVAÇÃO",
+        "SOLICITOU RETORNO PARA INSPEÇÃO"
+    ];
+    
+    // Verificar qual serviço adicional corresponde
+    for (const tipoServico of servicosParaVerificar) {
+        if (servicoNormalizado.includes(tipoServico.toUpperCase())) {
+            return tipoServico;
+        }
+    }
+    
+    return null;
+}
+
 // Função para determinar o tipo de vistoria
 function getTipoVistoria(servico) {
     if (!servico || typeof servico !== 'string') return "FISCALIZAÇÃO";
@@ -261,34 +425,117 @@ function analisarDados(dados) {
     
     // Resetar dados processados
     dadosProcessados = {
-        totalRegistros: 4289,
-        totalProtocolos: 640,
-        vistoriasRealizadas: 640,
+        // Dados para vistorias
+        totalRegistros: 0,
+        totalProtocolos: 0,
+        vistoriasRealizadas: 0,
         vistoriasPendentes: 0,
         responsaveis: [],
         responsaveisSemUsuario: 0,
         potenciaisResponsaveis: [],
         tiposVistoria: {
-            "VISTORIA PARA FUNCIONAMENTO": 3171,
-            "VISTORIA PARA HABITE-SE": 783,
-            "FISCALIZAÇÃO": 292
+            "VISTORIA PARA FUNCIONAMENTO": 0,
+            "VISTORIA PARA HABITE-SE": 0,
+            "FISCALIZAÇÃO": 0
         },
         statusAndamento: {},
         tendenciaTemporal: {
             porMes: {},
             porAno: {}
         },
-        producaoPorResponsavel: {}
+        producaoPorResponsavel: {},
+        protocolosPorResponsavel: {},
+        
+        // Contadores de serviços adicionais para vistorias
+        servicosAdicionais: {
+            "ALTERAÇÃO DE DADOS DO SERVIÇO": 0,
+            "ALTERAÇÃO DE TIPO DE SERVIÇO": 0,
+            "APROVADO": 0,
+            "CADASTRO": 0,
+            "DESPACHO DE ARQUIVO": 0,
+            "COMISSÃO TÉCNICA": 0,
+            "SOLICITADA ISENÇÃO DE TAXA": 0,
+            "PROCEDIMENTOS/OBSERVAÇÃO": 0,
+            "SOLICITOU RETORNO PARA INSPEÇÃO": 0
+        },
+        
+        // Dados para projetos
+        totalRegistrosProjetos: 0,
+        totalProtocolosProjetos: 0,
+        projetosAnalisados: 0,
+        projetosPendentes: 0,
+        responsaveisProjetos: [], // Lista de responsáveis por projetos
+        responsaveisProjetosSemUsuario: 0,
+        tiposProjeto: {
+            "ANÁLISE DE PROJETO": 0,
+            "SUBSTITUIÇÃO DE PROJETO": 0,
+            "OUTROS": 0
+        },
+        protocolosPorResponsavelProjeto: {}, // Objeto para armazenar os protocolos de projeto por responsável
+        
+        // Contadores para tipos de serviços adicionais de projetos
+        servicosAdicionaisProjeto: {
+            "ALTERAÇÃO DE DADOS DO SERVIÇO": 0,
+            "ALTERAÇÃO DE TIPO DE SERVIÇO": 0,
+            "APROVADO": 0,
+            "CADASTRO": 0,
+            "DESPACHO DE ARQUIVO": 0,
+            "COMISSÃO TÉCNICA": 0,
+            "SOLICITADA ISENÇÃO DE TAXA": 0,
+            "PROCEDIMENTOS/OBSERVAÇÃO": 0,
+            "SOLICITOU RETORNO PARA INSPEÇÃO": 0
+        }
     };
 
     // Total de registros
-    // dadosProcessados.totalRegistros = dados.length;
+    dadosProcessados.totalRegistros = dados.length;
 
-    // Filtrando apenas registros de vistoria
-    const registrosVistoria = dados.filter(row => isVistoria(row.SERVICO));
+    // Filtrando registros de vistoria e de projeto
+    const registrosVistoria = [];
+    const registrosProjeto = [];
+    
+    dados.forEach(row => {
+        // Verificar se é uma vistoria
+        if (isVistoria(row.SERVICO)) {
+            registrosVistoria.push(row);
+            
+            // Verificar e contar serviços adicionais para vistorias
+            const servicoAdicional = identificarServicoAdicional(row.SERVICO);
+            if (servicoAdicional && dadosProcessados.servicosAdicionais.hasOwnProperty(servicoAdicional)) {
+                dadosProcessados.servicosAdicionais[servicoAdicional]++;
+            }
+            
+            // Verificar e contar serviços adicionais, também pelo status de andamento
+            const statusAdicional = identificarServicoAdicional(row.STATUS_ANDAMENTO);
+            if (statusAdicional && dadosProcessados.servicosAdicionais.hasOwnProperty(statusAdicional)) {
+                dadosProcessados.servicosAdicionais[statusAdicional]++;
+            }
+        } 
+        // Verificar se é um projeto pelo serviço ou pelo andamento
+        else if (isProjeto(row.SERVICO) || isProjetoEntregueComExigencia(row.ANDAMENTO)) {
+            registrosProjeto.push(row);
+            
+            // Verificar e contar serviços adicionais para projetos
+            const servicoAdicional = identificarServicoAdicional(row.SERVICO);
+            if (servicoAdicional && dadosProcessados.servicosAdicionaisProjeto.hasOwnProperty(servicoAdicional)) {
+                dadosProcessados.servicosAdicionaisProjeto[servicoAdicional]++;
+            }
+            
+            // Verificar e contar serviços adicionais, também pelo status de andamento
+            const statusAdicional = identificarServicoAdicional(row.STATUS_ANDAMENTO);
+            if (statusAdicional && dadosProcessados.servicosAdicionaisProjeto.hasOwnProperty(statusAdicional)) {
+                dadosProcessados.servicosAdicionaisProjeto[statusAdicional]++;
+            }
+        }
+    });
+    
     console.log("Registros de vistorias identificados:", registrosVistoria.length);
+    console.log("Registros de projetos identificados:", registrosProjeto.length);
+    
+    // Armazenar o total de registros de projetos
+    dadosProcessados.totalRegistrosProjetos = registrosProjeto.length;
 
-    // Agrupar registros por protocolo
+    // Agrupar registros de vistorias por protocolo
     const protocolosAgrupados = {};
     registrosVistoria.forEach(row => {
         // Usa "PROTOCOLO/ANO" se disponível, senão cria a chave manualmente
@@ -318,16 +565,20 @@ function analisarDados(dados) {
         });
     });
 
-    // dadosProcessados.totalProtocolos = Object.keys(protocolosAgrupados).length;
+    dadosProcessados.totalProtocolos = Object.keys(protocolosAgrupados).length;
     console.log("Protocolos únicos identificados:", dadosProcessados.totalProtocolos);
 
-    // Para cada protocolo, identificar as vistorias realizadas
+    // Para cada protocolo, identificar as vistorias distribuídas e realizadas
     const protocolosRealizados = {};
     Object.entries(protocolosAgrupados).forEach(([protocolo, registros]) => {
+        // Verificar se existe algum registro com ANDAMENTO = "DISTRIBUIDO" associado ao protocolo
+        const temDistribuido = registros.some(r => r.ANDAMENTO === "DISTRIBUIDO");
+        
         // Filtrar registros com status que indicam que a vistoria foi realizada
         const registrosRealizados = registros.filter(r => isVistoriaRealizada(r.STATUS_ANDAMENTO));
         
-        if (registrosRealizados.length > 0) {
+        // Considerar apenas protocolos que possuem tanto distribuição quanto realização
+        if (temDistribuido && registrosRealizados.length > 0) {
             // Ordenar por DATA_SERVICO (mais recente primeiro)
             registrosRealizados.sort((a, b) => {
                 const dateA = parseDataBR(a.DATA_SERVICO);
@@ -345,16 +596,205 @@ function analisarDados(dados) {
         }
     });
 
-    // dadosProcessados.vistoriasRealizadas = Object.keys(protocolosRealizados).length;
-    // dadosProcessados.vistoriasPendentes = dadosProcessados.totalProtocolos - dadosProcessados.vistoriasRealizadas;
+    dadosProcessados.vistoriasRealizadas = Object.keys(protocolosRealizados).length;
+    dadosProcessados.vistoriasPendentes = dadosProcessados.totalProtocolos - dadosProcessados.vistoriasRealizadas;
     console.log("Vistorias realizadas:", dadosProcessados.vistoriasRealizadas);
     console.log("Vistorias pendentes:", dadosProcessados.vistoriasPendentes);
+    
+    // Agora processamos os projetos
+    // Agrupar registros de projetos por protocolo
+    const protocolosProjetosAgrupados = {};
+    registrosProjeto.forEach(row => {
+        // Usa "PROTOCOLO/ANO" se disponível, senão cria a chave manualmente
+        const protocoloKey = row["PROTOCOLO/ANO"] || `${row.PROTOCOLO}/${row.ANO}`;
+        if (!protocolosProjetosAgrupados[protocoloKey]) {
+            protocolosProjetosAgrupados[protocoloKey] = [];
+        }
+        
+        // Normaliza valores nulos ou vazios na propriedade USUARIO
+        let usuario = row.USUARIO;
+        if (usuario === null || usuario === undefined || usuario === "" || usuario === "(null)") {
+            usuario = "(não identificado)";
+        }
+        
+        protocolosProjetosAgrupados[protocoloKey].push({
+            STATUS_ANDAMENTO: row.STATUS_ANDAMENTO,
+            ANDAMENTO: row.ANDAMENTO,
+            DATA_SERVICO: row.DATA_SERVICO,
+            DATA_CADASTRO_AND: row.DATA_CADASTRO_AND,
+            USUARIO: usuario,
+            SERVICO: row.SERVICO,
+            MUNICIPIO: row.MUNICIPIO,
+            BAIRRO: row.BAIRRO,
+            RISCO: row.RISCO,
+            APROVADO: row.APROVADO
+        });
+    });
+    
+    dadosProcessados.totalProtocolosProjetos = Object.keys(protocolosProjetosAgrupados).length;
+    console.log("Protocolos únicos de projetos identificados:", dadosProcessados.totalProtocolosProjetos);
+    
+    // Para cada protocolo de projeto, identificar os analisados e pendentes
+    const protocolosProjetosAnalisados = {};
+    Object.entries(protocolosProjetosAgrupados).forEach(([protocolo, registros]) => {
+        // Verificar se existe algum registro com ANDAMENTO = "DISTRIBUIDO" ou "ENTREGUE AO SOLICITANTE COM EXIGÊNCIA" associado ao protocolo
+        const temDistribuidoOuEntregue = registros.some(r => 
+            r.ANDAMENTO === "DISTRIBUIDO" || 
+            r.ANDAMENTO === "ENTREGUE AO SOLICITANTE COM EXIGÊNCIA" ||
+            r.ANDAMENTO === "ENTREGUE AO SOLICITANTE COM EXIGENCIA" // Versão sem acentuação
+        );
+        
+        // Filtrar registros com status que indicam que o projeto foi analisado
+        const registrosAnalisados = registros.filter(r => isVistoriaRealizada(r.STATUS_ANDAMENTO));
+        
+        // Considerar protocolos que possuem distribuição/entrega ou realização
+        if ((temDistribuidoOuEntregue || registrosAnalisados.length > 0)) {
+            // Se tivermos registros analisados, usamos eles
+            let registroParaUsar;
+            
+            if (registrosAnalisados.length > 0) {
+                // Ordenar por DATA_SERVICO (mais recente primeiro)
+                registrosAnalisados.sort((a, b) => {
+                    const dateA = parseDataBR(a.DATA_SERVICO);
+                    const dateB = parseDataBR(b.DATA_SERVICO);
+                    
+                    if (!dateA && !dateB) return 0;
+                    if (!dateA) return 1;
+                    if (!dateB) return -1;
+                    
+                    return dateB - dateA; // Ordenação decrescente (mais recente primeiro)
+                });
+                
+                // Pegar o registro REALIZADO mais recente
+                registroParaUsar = registrosAnalisados[0];
+            } else {
+                // Se não temos registros analisados, pegamos o registro com ENTREGUE AO SOLICITANTE COM EXIGÊNCIA
+                const registrosEntregues = registros.filter(r => 
+                    r.ANDAMENTO === "ENTREGUE AO SOLICITANTE COM EXIGÊNCIA" ||
+                    r.ANDAMENTO === "ENTREGUE AO SOLICITANTE COM EXIGENCIA"
+                );
+                
+                if (registrosEntregues.length > 0) {
+                    // Ordenar por DATA_SERVICO (mais recente primeiro)
+                    registrosEntregues.sort((a, b) => {
+                        const dateA = parseDataBR(a.DATA_SERVICO);
+                        const dateB = parseDataBR(b.DATA_SERVICO);
+                        
+                        if (!dateA && !dateB) return 0;
+                        if (!dateA) return 1;
+                        if (!dateB) return -1;
+                        
+                        return dateB - dateA;
+                    });
+                    
+                    registroParaUsar = registrosEntregues[0];
+                } else {
+                    // Se não temos entregues também, usamos o distribuído
+                    const registrosDistribuidos = registros.filter(r => r.ANDAMENTO === "DISTRIBUIDO");
+                    if (registrosDistribuidos.length > 0) {
+                        registrosDistribuidos.sort((a, b) => {
+                            const dateA = parseDataBR(a.DATA_SERVICO);
+                            const dateB = parseDataBR(b.DATA_SERVICO);
+                            
+                            if (!dateA && !dateB) return 0;
+                            if (!dateA) return 1;
+                            if (!dateB) return -1;
+                            
+                            return dateB - dateA;
+                        });
+                        
+                        registroParaUsar = registrosDistribuidos[0];
+                    } else {
+                        // Se chegarmos aqui, usamos o primeiro registro que temos
+                        registroParaUsar = registros[0];
+                    }
+                }
+            }
+            
+            protocolosProjetosAnalisados[protocolo] = registroParaUsar;
+            
+            // Contabilizar por tipo de projeto
+            const tipoProjeto = getTipoProjeto(registroParaUsar.SERVICO);
+            dadosProcessados.tiposProjeto[tipoProjeto]++;
+        }
+    });
+    
+    dadosProcessados.projetosAnalisados = Object.keys(protocolosProjetosAnalisados).length;
+    dadosProcessados.projetosPendentes = dadosProcessados.totalProtocolosProjetos - dadosProcessados.projetosAnalisados;
+    console.log("Projetos analisados:", dadosProcessados.projetosAnalisados);
+    console.log("Projetos pendentes:", dadosProcessados.projetosPendentes);
+    
+    // Contagem de projetos por responsável
+    const projetosPorResponsavel = {};
+    const projetosPorTipoEResponsavel = {};
+    dadosProcessados.protocolosPorResponsavelProjeto = {}; // Reiniciar o objeto de protocolos por responsável
+    
+    Object.entries(protocolosProjetosAnalisados).forEach(([protocolo, registro]) => {
+        const responsavel = registro.USUARIO;
+        const servico = registro.SERVICO;
+        const tipoProjeto = getTipoProjeto(servico);
+        
+        if (!projetosPorResponsavel[responsavel]) {
+            projetosPorResponsavel[responsavel] = 0;
+        }
+        projetosPorResponsavel[responsavel]++;
+        
+        if (!projetosPorTipoEResponsavel[responsavel]) {
+            projetosPorTipoEResponsavel[responsavel] = {
+                "ANÁLISE DE PROJETO": 0,
+                "SUBSTITUIÇÃO DE PROJETO": 0,
+                "OUTROS": 0
+            };
+        }
+        
+        projetosPorTipoEResponsavel[responsavel][tipoProjeto]++;
+        
+        // Armazenar informações de protocolo por responsável, agrupando por tipo de projeto
+        if (!dadosProcessados.protocolosPorResponsavelProjeto[responsavel]) {
+            dadosProcessados.protocolosPorResponsavelProjeto[responsavel] = {
+                "ANÁLISE DE PROJETO": [],
+                "SUBSTITUIÇÃO DE PROJETO": [],
+                "OUTROS": []
+            };
+        }
+        
+        // Adicionar o protocolo à lista correspondente ao tipo de projeto
+        dadosProcessados.protocolosPorResponsavelProjeto[responsavel][tipoProjeto].push({
+            protocolo: protocolo,
+            servico: servico,
+            data: registro.DATA_SERVICO,
+            dataObj: parseDataBR(registro.DATA_SERVICO) // Adicionar objeto Date para ordenação posterior
+        });
+    });
+    
+    // Organizar responsáveis de projetos em um array com contagem e detalhes
+    dadosProcessados.responsaveisProjetos = Object.entries(projetosPorResponsavel)
+        .map(([responsavel, total]) => ({
+            responsavel,
+            total,
+            analiseProjeto: projetosPorTipoEResponsavel[responsavel]["ANÁLISE DE PROJETO"],
+            substituicaoProjeto: projetosPorTipoEResponsavel[responsavel]["SUBSTITUIÇÃO DE PROJETO"],
+            outros: projetosPorTipoEResponsavel[responsavel]["OUTROS"]
+        }))
+        .sort((a, b) => b.total - a.total);
+    
+    console.log("Número de responsáveis por projetos identificados:", dadosProcessados.responsaveisProjetos.length);
+    
+    // Contagem de projetos sem usuário identificado
+    dadosProcessados.responsaveisProjetosSemUsuario = projetosPorResponsavel["(não identificado)"] || 0;
+    
+    // Remover entrada "(não identificado)" do array de responsáveis de projetos
+    dadosProcessados.responsaveisProjetos = dadosProcessados.responsaveisProjetos.filter(resp => 
+        resp.responsavel !== "(não identificado)" && 
+        resp.responsavel !== "(null)"
+    );
 
     // Contagem de vistorias por responsável
     const vistoriasPorResponsavel = {};
     const vistoriasPorTipoEResponsavel = {};
+    dadosProcessados.protocolosPorResponsavel = {}; // Reiniciar o objeto de protocolos por responsável
     
-    Object.values(protocolosRealizados).forEach(registro => {
+    Object.entries(protocolosRealizados).forEach(([protocolo, registro]) => {
         const responsavel = registro.USUARIO;
         const servico = registro.SERVICO;
         const tipoVistoria = getTipoVistoria(servico);
@@ -374,8 +814,35 @@ function analisarDados(dados) {
         
         vistoriasPorTipoEResponsavel[responsavel][tipoVistoria]++;
         
+        // Armazenar informações de protocolo por responsável, agrupando por tipo de vistoria
+        if (!dadosProcessados.protocolosPorResponsavel[responsavel]) {
+            dadosProcessados.protocolosPorResponsavel[responsavel] = {
+                "VISTORIA PARA FUNCIONAMENTO": [],
+                "VISTORIA PARA HABITE-SE": [],
+                "FISCALIZAÇÃO": []
+            };
+        }
+        
+        // Adicionar o protocolo à lista correspondente ao tipo de vistoria
+        dadosProcessados.protocolosPorResponsavel[responsavel][tipoVistoria].push({
+            protocolo: protocolo,
+            servico: servico,
+            data: registro.DATA_SERVICO,
+            dataObj: parseDataBR(registro.DATA_SERVICO) // Adicionar objeto Date para ordenação posterior
+        });
+        
         // Contabiliza para estatísticas de tipo de vistoria
-        // dadosProcessados.tiposVistoria[tipoVistoria]++;
+        dadosProcessados.tiposVistoria[tipoVistoria]++;
+        
+        // Verificar se o serviço é um dos tipos a serem considerados para o total
+        const servicoAdicional = identificarServicoAdicional(registro.SERVICO);
+        if (servicoAdicional) {
+            // Se for relacionado a funcionamento ou habite-se, adiciona ao tipo correspondente
+            if (servicoAdicional && (tipoVistoria === "VISTORIA PARA FUNCIONAMENTO" || tipoVistoria === "VISTORIA PARA HABITE-SE")) {
+                // Incrementa o contador do serviço, mas também já foi contabilizado para o tipo de vistoria
+                dadosProcessados.servicosAdicionais[servicoAdicional]++;
+            }
+        }
     });
 
     // Organizar responsáveis em um array com contagem e detalhes
@@ -524,9 +991,399 @@ function analisarDados(dados) {
     console.log("Análise de dados concluída!");
 }
 
+// Função para renderizar o gráfico de responsáveis por projetos
+function renderizarGraficoResponsaveisProjetos() {
+    const ctx = document.getElementById('responsaveisProjetosChart').getContext('2d');
+    
+    // Se já existe um gráfico, destruí-lo
+    if (responsaveisProjetosChart) {
+        responsaveisProjetosChart.destroy();
+    }
+    
+    // Preparar dados para o gráfico (top 10 responsáveis)
+    const top10 = dadosProcessados.responsaveisProjetos.slice(0, 10);
+    
+    const labels = top10.map(r => {
+        // Extrair o último nome ou o nome completo se curto
+        const nomes = r.responsavel.split(' ');
+        return nomes.length > 1 ? nomes[nomes.length - 1] : r.responsavel;
+    });
+    
+    const dataAnaliseProjeto = top10.map(r => r.analiseProjeto);
+    const dataSubstituicaoProjeto = top10.map(r => r.substituicaoProjeto);
+    const dataOutros = top10.map(r => r.outros);
+    
+    // Criar gráfico
+    responsaveisProjetosChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Análise de Projeto',
+                    data: dataAnaliseProjeto,
+                    backgroundColor: '#2980b9',
+                    borderColor: '#1a5276',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Substituição de Projeto',
+                    data: dataSubstituicaoProjeto,
+                    backgroundColor: '#27ae60',
+                    borderColor: '#1e8449',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Outros',
+                    data: dataOutros,
+                    backgroundColor: '#f39c12',
+                    borderColor: '#d35400',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Top 10 Técnicos por Volume de Projetos'
+                },
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            // Mostrar o nome completo no tooltip
+                            const idx = context[0].dataIndex;
+                            return top10[idx].responsavel;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    stacked: true
+                },
+                y: {
+                    stacked: true,
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Função para renderizar o gráfico de tipos de projeto
+function renderizarGraficoTiposProjetos() {
+    const ctx = document.getElementById('tiposProjetosChart').getContext('2d');
+    
+    // Se já existe um gráfico, destruí-lo
+    if (tiposProjetosChart) {
+        tiposProjetosChart.destroy();
+    }
+    
+    // Preparar dados para o gráfico
+    const labels = ["Análise de Projeto", "Substituição de Projeto", "Outros"];
+    const data = [
+        dadosProcessados.tiposProjeto["ANÁLISE DE PROJETO"],
+        dadosProcessados.tiposProjeto["SUBSTITUIÇÃO DE PROJETO"],
+        dadosProcessados.tiposProjeto["OUTROS"]
+    ];
+    
+    // Criar gráfico
+    tiposProjetosChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: ['#3498db', '#2ecc71', '#f39c12'],
+                borderColor: ['#2980b9', '#27ae60', '#d35400'],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Distribuição por Tipo de Projeto'
+                },
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${context.label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Função para renderizar o gráfico de status de andamento de projetos
+function renderizarGraficoStatusProjetos() {
+    const ctx = document.getElementById('statusProjetosChart').getContext('2d');
+    
+    // Se já existe um gráfico, destruí-lo
+    if (statusProjetosChart) {
+        statusProjetosChart.destroy();
+    }
+    
+    // Contabilizar status de projetos
+    const statusProjetos = {};
+    dadosProcessados.statusAndamento && Object.entries(dadosProcessados.statusAndamento).forEach(([status, count]) => {
+        if (statusProjetos[status]) {
+            statusProjetos[status] += count;
+        } else {
+            statusProjetos[status] = count;
+        }
+    });
+    
+    // Destacar status específicos de projetos
+    if (!statusProjetos["ENTREGUE AO SOLICITANTE COM EXIGÊNCIA"]) {
+        statusProjetos["ENTREGUE AO SOLICITANTE COM EXIGÊNCIA"] = 0;
+    }
+    if (!statusProjetos["APROVADO"]) {
+        statusProjetos["APROVADO"] = 0;
+    }
+    if (!statusProjetos["DISTRIBUIDO"]) {
+        statusProjetos["DISTRIBUIDO"] = 0;
+    }
+    
+    // Preparar dados para o gráfico
+    const statusData = Object.entries(statusProjetos)
+        .filter(([status]) => status !== "NÃO ESPECIFICADO" && status !== "")
+        .sort((a, b) => b[1] - a[1]); // Ordenar por quantidade (descendente)
+    
+    // Limitar a 10 status principais para não sobrecarregar o gráfico
+    const topStatus = statusData.slice(0, 10);
+    
+    const labels = topStatus.map(item => item[0]);
+    const data = topStatus.map(item => item[1]);
+    
+    // Gerar cores para cada status
+    const backgroundColors = [
+        '#3498db', '#e74c3c', '#f39c12', '#2ecc71', '#9b59b6', 
+        '#1abc9c', '#d35400', '#2c3e50', '#16a085', '#27ae60'
+    ];
+    
+    // Criar gráfico
+    statusProjetosChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: backgroundColors.slice(0, labels.length),
+                borderColor: backgroundColors.map(color => color.replace('db', 'b9').replace('3c', '29').replace('12', '0b')),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Distribuição por Status de Andamento'
+                },
+                legend: {
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${context.label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Função para renderizar o gráfico de tendência temporal de projetos
+function renderizarGraficoTendenciaProjetos(periodo) {
+    const ctx = document.getElementById('tendenciaProjetosChart').getContext('2d');
+    
+    // Se já existe um gráfico, destruí-lo
+    if (tendenciaProjetosChart) {
+        tendenciaProjetosChart.destroy();
+    }
+    
+    // Aqui contabilizaríamos a tendência temporal real de projetos
+    // Como não temos dados estruturados para isso no estado atual, usaremos dados de exemplo
+    // Em uma implementação real, seria necessário contar os projetos por mês/ano
+    
+    let labels, data;
+    
+    if (periodo === 'mes') {
+        // Dados de exemplo por mês
+        labels = ['01/2023', '02/2023', '03/2023', '04/2023', '05/2023', '06/2023'];
+        data = [15, 22, 18, 25, 30, 28];
+    } else {
+        // Dados de exemplo por ano
+        labels = ['2020', '2021', '2022', '2023'];
+        data = [120, 145, 190, 210];
+    }
+    
+    // Criar gráfico
+    tendenciaProjetosChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Projetos Analisados',
+                data: data,
+                backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                borderColor: '#3498db',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: periodo === 'mes' ? 'Evolução de Projetos por Mês' : 'Evolução de Projetos por Ano'
+                },
+                legend: {
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Função para renderizar o gráfico de produção por responsável de projetos
+function renderizarGraficoProducaoProjetos() {
+    const ctx = document.getElementById('producaoProjetosChart').getContext('2d');
+    const responsavelSelecionado = document.getElementById('producaoResponsavelProjetosSelect').value;
+    
+    // Se já existe um gráfico, destruí-lo
+    if (producaoProjetosChart) {
+        producaoProjetosChart.destroy();
+        producaoProjetosChart = null;
+    }
+    
+    if (!responsavelSelecionado) {
+        // Mostrar mensagem no lugar do gráfico
+        ctx.canvas.style.display = 'none';
+        const container = ctx.canvas.parentNode;
+        
+        // Verificar se já existe uma mensagem
+        let msgElement = container.querySelector('.no-data-message');
+        if (!msgElement) {
+            msgElement = document.createElement('div');
+            msgElement.className = 'no-data-message';
+            msgElement.style.textAlign = 'center';
+            msgElement.style.padding = '50px 0';
+            msgElement.style.color = '#777';
+            container.appendChild(msgElement);
+        }
+        
+        msgElement.textContent = 'Selecione um técnico responsável para visualizar sua produtividade mensal.';
+        return;
+    }
+    
+    // Aqui teríamos dados reais de produção mensal por responsável
+    // Como não temos dados estruturados para isso no estado atual, usaremos dados de exemplo
+    // Em uma implementação real, usaríamos: dadosProcessados.producaoPorResponsavelProjeto[responsavelSelecionado]
+    
+    // Dados de exemplo
+    const labels = ['01/2023', '02/2023', '03/2023', '04/2023', '05/2023', '06/2023'];
+    const data = [5, 7, 4, 8, 6, 9];
+    
+    // Remover mensagem de "sem dados" se existir
+    const container = ctx.canvas.parentNode;
+    const msgElement = container.querySelector('.no-data-message');
+    if (msgElement) {
+        container.removeChild(msgElement);
+    }
+    
+    // Exibir o canvas
+    ctx.canvas.style.display = 'block';
+    
+    try {
+        // Criar gráfico
+        producaoProjetosChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Projetos Analisados',
+                    data: data,
+                    backgroundColor: '#f39c12',
+                    borderColor: '#d35400',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Produtividade Mensal: ${responsavelSelecionado}`
+                    },
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0 // Apenas números inteiros
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Erro ao renderizar gráfico de produção de projetos:", error);
+        // Mostrar mensagem de erro
+        ctx.canvas.style.display = 'none';
+        
+        let msgElement = container.querySelector('.no-data-message');
+        if (!msgElement) {
+            msgElement = document.createElement('div');
+            msgElement.className = 'no-data-message';
+            msgElement.style.textAlign = 'center';
+            msgElement.style.padding = '50px 0';
+            msgElement.style.color = '#777';
+            container.appendChild(msgElement);
+        }
+        
+        msgElement.textContent = 'Ocorreu um erro ao renderizar o gráfico de produtividade.';
+    }
+}
+
 // Função para renderizar o relatório
 function renderizarRelatorio() {
-    // Atualizar resumo
+    // Atualizar resumo de vistorias
     document.getElementById('totalRegistros').textContent = dadosProcessados.totalRegistros.toLocaleString();
     document.getElementById('totalProtocolos').textContent = dadosProcessados.totalProtocolos.toLocaleString();
     document.getElementById('totalRealizadas').textContent = dadosProcessados.vistoriasRealizadas.toLocaleString();
@@ -534,22 +1391,217 @@ function renderizarRelatorio() {
     document.getElementById('totalFuncionamento').textContent = dadosProcessados.tiposVistoria["VISTORIA PARA FUNCIONAMENTO"].toLocaleString();
     document.getElementById('totalHabitese').textContent = dadosProcessados.tiposVistoria["VISTORIA PARA HABITE-SE"].toLocaleString();
     document.getElementById('totalFiscalizacao').textContent = dadosProcessados.tiposVistoria["FISCALIZAÇÃO"].toLocaleString();
+    
+    // Atualizar contadores de serviços adicionais para vistorias
+    document.getElementById('totalAlteracaoDados').textContent = dadosProcessados.servicosAdicionais["ALTERAÇÃO DE DADOS DO SERVIÇO"].toLocaleString();
+    document.getElementById('totalAlteracaoTipo').textContent = dadosProcessados.servicosAdicionais["ALTERAÇÃO DE TIPO DE SERVIÇO"].toLocaleString();
+    document.getElementById('totalAprovado').textContent = dadosProcessados.servicosAdicionais["APROVADO"].toLocaleString();
+    document.getElementById('totalCadastro').textContent = dadosProcessados.servicosAdicionais["CADASTRO"].toLocaleString();
+    
+    // Atualizar resumo de projetos
+    document.getElementById('totalRegistrosProjetos').textContent = dadosProcessados.totalRegistrosProjetos.toLocaleString();
+    document.getElementById('totalProtocolosProjetos').textContent = dadosProcessados.totalProtocolosProjetos.toLocaleString();
+    document.getElementById('totalProjetosAnalisados').textContent = dadosProcessados.projetosAnalisados.toLocaleString();
+    document.getElementById('totalProjetosPendentes').textContent = dadosProcessados.projetosPendentes.toLocaleString();
+    document.getElementById('totalAnaliseProjeto').textContent = dadosProcessados.tiposProjeto["ANÁLISE DE PROJETO"].toLocaleString();
+    document.getElementById('totalSubstituicaoProjeto').textContent = dadosProcessados.tiposProjeto["SUBSTITUIÇÃO DE PROJETO"].toLocaleString();
+    document.getElementById('totalOutrosServicos').textContent = dadosProcessados.tiposProjeto["OUTROS"].toLocaleString();
+    
+    // Atualizar contadores de serviços adicionais para projetos
+    document.getElementById('totalAlteracaoDadosProjeto').textContent = dadosProcessados.servicosAdicionaisProjeto["ALTERAÇÃO DE DADOS DO SERVIÇO"].toLocaleString();
+    document.getElementById('totalAlteracaoTipoProjeto').textContent = dadosProcessados.servicosAdicionaisProjeto["ALTERAÇÃO DE TIPO DE SERVIÇO"].toLocaleString();
+    document.getElementById('totalAprovadoProjeto').textContent = dadosProcessados.servicosAdicionaisProjeto["APROVADO"].toLocaleString();
+    document.getElementById('totalCadastroProjeto').textContent = dadosProcessados.servicosAdicionaisProjeto["CADASTRO"].toLocaleString();
 
-    // Renderizar tabela de responsáveis
+    // Renderizar tabela de responsáveis por vistorias
     const responsaveisBody = document.getElementById('responsaveisBody');
     responsaveisBody.innerHTML = '';
     
     // O filtro foi removido porque já filtramos o array de responsáveis anteriormente
     dadosProcessados.responsaveis.forEach(resp => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${resp.responsavel}</td>
-            <td>${resp.total}</td>
-            <td>${resp.funcionamento}</td>
-            <td>${resp.habitese}</td>
-            <td>${resp.fiscalizacao}</td>
-        `;
+        
+        // Verificar se temos dados de protocolos para este responsável
+        const temProtocolos = dadosProcessados.protocolosPorResponsavel[resp.responsavel] &&
+            (dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA FUNCIONAMENTO"].length > 0 ||
+             dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA HABITE-SE"].length > 0 ||
+             dadosProcessados.protocolosPorResponsavel[resp.responsavel]["FISCALIZAÇÃO"].length > 0);
+        
+        if (temProtocolos) {
+            // Construir o conteúdo do tooltip com os protocolos por tipo
+            // Ordenar cada lista de protocolos por data (mais recentes primeiro)
+            const sortProtocosByDate = (protocolos) => {
+                return [...protocolos].sort((a, b) => {
+                    if (!a.dataObj && !b.dataObj) return 0;
+                    if (!a.dataObj) return 1; // Sem data vai para o final
+                    if (!b.dataObj) return -1; // Sem data vai para o final
+                    return b.dataObj - a.dataObj; // Ordem decrescente (mais recente primeiro)
+                });
+            };
+            
+            const protocolosFuncionamento = sortProtocosByDate(dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA FUNCIONAMENTO"]);
+            const protocolosHabitese = sortProtocosByDate(dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA HABITE-SE"]);
+            const protocolosFiscalizacao = sortProtocosByDate(dadosProcessados.protocolosPorResponsavel[resp.responsavel]["FISCALIZAÇÃO"]);
+            
+            const tooltipContent = `
+                <div class="tooltip-title">Protocolos Atendidos por ${resp.responsavel}</div>
+                <div class="tooltip-summary">
+                    <strong>Total:</strong> ${resp.total} protocolos | 
+                    <strong>Funcionamento:</strong> ${resp.funcionamento} | 
+                    <strong>Habite-se:</strong> ${resp.habitese} | 
+                    <strong>Fiscalização:</strong> ${resp.fiscalizacao}
+                </div>
+                
+                ${protocolosFuncionamento.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Vistorias para Funcionamento (${protocolosFuncionamento.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosFuncionamento.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${protocolosHabitese.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Vistorias para Habite-se (${protocolosHabitese.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosHabitese.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${protocolosFiscalizacao.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Fiscalizações (${protocolosFiscalizacao.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosFiscalizacao.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            `;
+            
+            tr.innerHTML = `
+                <td class="tooltip-trigger">
+                    ${resp.responsavel}
+                    <div class="tooltip-content">${tooltipContent}</div>
+                </td>
+                <td>${resp.total}</td>
+                <td>${resp.funcionamento}</td>
+                <td>${resp.habitese}</td>
+                <td>${resp.fiscalizacao}</td>
+            `;
+        } else {
+            tr.innerHTML = `
+                <td>${resp.responsavel}</td>
+                <td>${resp.total}</td>
+                <td>${resp.funcionamento}</td>
+                <td>${resp.habitese}</td>
+                <td>${resp.fiscalizacao}</td>
+            `;
+        }
+        
         responsaveisBody.appendChild(tr);
+    });
+    
+    // Renderizar tabela de responsáveis por projetos
+    const responsaveisProjetosBody = document.getElementById('responsaveisProjetosBody');
+    responsaveisProjetosBody.innerHTML = '';
+    
+    dadosProcessados.responsaveisProjetos.forEach(resp => {
+        const tr = document.createElement('tr');
+        
+        // Verificar se temos dados de protocolos para este responsável
+        const temProtocolos = dadosProcessados.protocolosPorResponsavelProjeto[resp.responsavel] &&
+            (dadosProcessados.protocolosPorResponsavelProjeto[resp.responsavel]["ANÁLISE DE PROJETO"].length > 0 ||
+             dadosProcessados.protocolosPorResponsavelProjeto[resp.responsavel]["SUBSTITUIÇÃO DE PROJETO"].length > 0 ||
+             dadosProcessados.protocolosPorResponsavelProjeto[resp.responsavel]["OUTROS"].length > 0);
+        
+        if (temProtocolos) {
+            // Construir o conteúdo do tooltip com os protocolos por tipo
+            // Ordenar cada lista de protocolos por data (mais recentes primeiro)
+            const sortProtocosByDate = (protocolos) => {
+                return [...protocolos].sort((a, b) => {
+                    if (!a.dataObj && !b.dataObj) return 0;
+                    if (!a.dataObj) return 1; // Sem data vai para o final
+                    if (!b.dataObj) return -1; // Sem data vai para o final
+                    return b.dataObj - a.dataObj; // Ordem decrescente (mais recente primeiro)
+                });
+            };
+            
+            const protocolosAnaliseProjeto = sortProtocosByDate(dadosProcessados.protocolosPorResponsavelProjeto[resp.responsavel]["ANÁLISE DE PROJETO"]);
+            const protocolosSubstituicaoProjeto = sortProtocosByDate(dadosProcessados.protocolosPorResponsavelProjeto[resp.responsavel]["SUBSTITUIÇÃO DE PROJETO"]);
+            const protocolosOutros = sortProtocosByDate(dadosProcessados.protocolosPorResponsavelProjeto[resp.responsavel]["OUTROS"]);
+            
+            const tooltipContent = `
+                <div class="tooltip-title">Protocolos de Projetos Atendidos por ${resp.responsavel}</div>
+                <div class="tooltip-summary">
+                    <strong>Total:</strong> ${resp.total} protocolos | 
+                    <strong>Análise:</strong> ${resp.analiseProjeto} | 
+                    <strong>Substituição:</strong> ${resp.substituicaoProjeto} | 
+                    <strong>Outros:</strong> ${resp.outros}
+                </div>
+                
+                ${protocolosAnaliseProjeto.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Análise de Projetos (${protocolosAnaliseProjeto.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosAnaliseProjeto.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${protocolosSubstituicaoProjeto.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Substituição de Projetos (${protocolosSubstituicaoProjeto.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosSubstituicaoProjeto.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${protocolosOutros.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Outros Serviços (${protocolosOutros.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosOutros.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            `;
+            
+            tr.innerHTML = `
+                <td class="tooltip-trigger">
+                    ${resp.responsavel}
+                    <div class="tooltip-content">${tooltipContent}</div>
+                </td>
+                <td>${resp.total}</td>
+                <td>${resp.analiseProjeto}</td>
+                <td>${resp.substituicaoProjeto}</td>
+                <td>${resp.outros}</td>
+            `;
+        } else {
+            tr.innerHTML = `
+                <td>${resp.responsavel}</td>
+                <td>${resp.total}</td>
+                <td>${resp.analiseProjeto}</td>
+                <td>${resp.substituicaoProjeto}</td>
+                <td>${resp.outros}</td>
+            `;
+        }
+        
+        responsaveisProjetosBody.appendChild(tr);
     });
 
     // Atualizar contagens totais
@@ -583,7 +1635,7 @@ function renderizarRelatorio() {
         potenciaisBody.appendChild(tr);
     });
 
-    // Preencher o select de responsáveis para o gráfico de produção
+    // Preencher o select de responsáveis para o gráfico de produção - vistorias
     const selectResponsavel = document.getElementById('producaoResponsavelSelect');
     selectResponsavel.innerHTML = '<option value="">Selecione um técnico responsável</option>';
     
@@ -595,17 +1647,63 @@ function renderizarRelatorio() {
             option.textContent = resp.responsavel;
             selectResponsavel.appendChild(option);
         });
+    
+    // Preencher o select de responsáveis para o gráfico de produção - projetos
+    const selectResponsavelProjetos = document.getElementById('producaoResponsavelProjetosSelect');
+    selectResponsavelProjetos.innerHTML = '<option value="">Selecione um técnico responsável</option>';
+    
+    dadosProcessados.responsaveisProjetos
+        .filter(resp => resp.responsavel !== "(não identificado)")
+        .forEach(resp => {
+            const option = document.createElement('option');
+            option.value = resp.responsavel;
+            option.textContent = resp.responsavel;
+            selectResponsavelProjetos.appendChild(option);
+        });
 
-    // Renderizar todos os gráficos
-    renderizarGraficos();
+    // Verificar qual aba está ativa para renderizar os gráficos apropriados
+    if (document.getElementById('vistoriaPanel').classList.contains('active')) {
+        renderizarGraficos();
+    } else if (document.getElementById('projetoPanel').classList.contains('active')) {
+        renderizarGraficosProjetos();
+    }
 }
 
-// Função para renderizar todos os gráficos
+// Função para renderizar todos os gráficos de vistorias
 function renderizarGraficos() {
     renderizarGraficoResponsaveis();
     renderizarGraficoTipos();
     renderizarGraficoStatus();
     renderizarGraficoTendencia('mes');
+    // O gráfico de produção será renderizado quando um responsável for selecionado
+}
+
+// Função para renderizar todos os gráficos de projetos
+function renderizarGraficosProjetos() {
+    console.log("Iniciando renderização de gráficos de projetos");
+    
+    try {
+        // Verificar se os elementos Canvas existem
+        const responsaveisCanvas = document.getElementById('responsaveisProjetosChart');
+        const tiposCanvas = document.getElementById('tiposProjetosChart');
+        const statusCanvas = document.getElementById('statusProjetosChart');
+        const tendenciaCanvas = document.getElementById('tendenciaProjetosChart');
+        
+        console.log("Canvas dos gráficos de projetos:", responsaveisCanvas, tiposCanvas, statusCanvas, tendenciaCanvas);
+        
+        if (responsaveisCanvas && tiposCanvas && statusCanvas && tendenciaCanvas) {
+            renderizarGraficoResponsaveisProjetos();
+            renderizarGraficoTiposProjetos();
+            renderizarGraficoStatusProjetos();
+            renderizarGraficoTendenciaProjetos('mes');
+            console.log("Todos os gráficos de projetos foram renderizados com sucesso");
+        } else {
+            console.error("Alguns elementos canvas para os gráficos de projetos não foram encontrados");
+        }
+    } catch (err) {
+        console.error("Erro ao renderizar gráficos de projetos:", err);
+    }
+    
     // O gráfico de produção será renderizado quando um responsável for selecionado
 }
 
@@ -996,6 +2094,65 @@ function renderizarGraficoProducao() {
 }
 
 // Função para abrir abas principais
+function openMainTab(evt, tabName) {
+    // Esconder todas as abas principais
+    const mainTabContent = document.getElementsByClassName("main-tab-content");
+    for (let i = 0; i < mainTabContent.length; i++) {
+        mainTabContent[i].classList.remove("active");
+    }
+    
+    // Remover classe "active" de todos os botões principais
+    const mainTabBtns = document.getElementsByClassName("main-tab-btn");
+    for (let i = 0; i < mainTabBtns.length; i++) {
+        mainTabBtns[i].classList.remove("active");
+    }
+    
+    // Mostrar a aba principal selecionada e marcar o botão como ativo
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+    
+    // Alternar o painel de equipe técnica correspondente
+    const equipeTecnicaVistorias = document.getElementById('equipeTecnicaVistorias');
+    const equipeTecnicaProjetos = document.getElementById('equipeTecnicaProjetos');
+    
+    // Alternar o painel de gráficos correspondente
+    const graficosVistorias = document.getElementById('graficosVistorias');
+    const graficosProjetos = document.getElementById('graficosProjetos');
+    
+    console.log("Alternando para: ", tabName);
+    console.log("Elementos: ", equipeTecnicaVistorias, equipeTecnicaProjetos, graficosVistorias, graficosProjetos);
+    
+    if (tabName === 'vistoriaPanel') {
+        if (equipeTecnicaVistorias) equipeTecnicaVistorias.classList.add('active');
+        if (equipeTecnicaProjetos) equipeTecnicaProjetos.classList.remove('active');
+        
+        if (graficosVistorias) graficosVistorias.classList.add('active');
+        if (graficosProjetos) graficosProjetos.classList.remove('active');
+        
+        // Renderizar gráficos de vistorias
+        if (document.getElementById('graficos').classList.contains('active')) {
+            // Renderizar imediatamente
+            renderizarGraficos();
+        }
+    } else if (tabName === 'projetoPanel') {
+        if (equipeTecnicaVistorias) equipeTecnicaVistorias.classList.remove('active');
+        if (equipeTecnicaProjetos) equipeTecnicaProjetos.classList.add('active');
+        
+        if (graficosVistorias) graficosVistorias.classList.remove('active');
+        if (graficosProjetos) graficosProjetos.classList.add('active');
+        
+        // Renderizar gráficos de projetos
+        if (document.getElementById('graficos').classList.contains('active')) {
+            // Renderizar imediatamente e com um delay para garantir que a UI foi atualizada
+            renderizarGraficosProjetos();
+            setTimeout(function() {
+                renderizarGraficosProjetos();
+            }, 200);
+        }
+    }
+}
+
+// Função para abrir abas secundárias
 function openTab(evt, tabName) {
     // Esconder todas as abas
     const tabContent = document.getElementsByClassName("tab-content");
@@ -1012,18 +2169,54 @@ function openTab(evt, tabName) {
     // Mostrar a aba selecionada e marcar o botão como ativo
     document.getElementById(tabName).classList.add("active");
     evt.currentTarget.classList.add("active");
+    
+    // Se a aba de gráficos foi selecionada, renderizar os gráficos apropriados
+    if (tabName === 'graficos') {
+        console.log("Aba de gráficos selecionada, verificando qual painel está ativo");
+        // Verificar qual painel principal está ativo
+        if (document.getElementById('vistoriaPanel').classList.contains('active')) {
+            console.log("Renderizando gráficos de vistorias");
+            renderizarGraficos();
+        } else if (document.getElementById('projetoPanel').classList.contains('active')) {
+            console.log("Renderizando gráficos de projetos");
+            renderizarGraficosProjetos();
+            // Dupla chamada para garantir a renderização
+            setTimeout(() => {
+                renderizarGraficosProjetos();
+            }, 300);
+        }
+    }
 }
 
-// Função para abrir abas de gráficos
+// Função para abrir abas de gráficos - painel vistorias
 function openChartTab(evt, tabName) {
-    // Esconder todas as abas de gráficos
-    const chartTabContent = document.getElementsByClassName("chart-tab-content");
+    // Esconder todas as abas de gráficos do painel de vistorias
+    const chartTabContent = document.querySelectorAll("#graficosVistorias .chart-tab-content");
     for (let i = 0; i < chartTabContent.length; i++) {
         chartTabContent[i].classList.remove("active");
     }
     
-    // Remover classe "active" de todos os botões de abas de gráficos
-    const chartTabBtns = document.getElementsByClassName("chart-tab-btn");
+    // Remover classe "active" de todos os botões de abas de gráficos do painel de vistorias
+    const chartTabBtns = document.querySelectorAll("#graficosVistorias .chart-tab-btn");
+    for (let i = 0; i < chartTabBtns.length; i++) {
+        chartTabBtns[i].classList.remove("active");
+    }
+    
+    // Mostrar a aba de gráfico selecionada e marcar o botão como ativo
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+}
+
+// Função para abrir abas de gráficos - painel projetos
+function openChartTabProjetos(evt, tabName) {
+    // Esconder todas as abas de gráficos do painel de projetos
+    const chartTabContent = document.querySelectorAll("#graficosProjetos .chart-tab-content");
+    for (let i = 0; i < chartTabContent.length; i++) {
+        chartTabContent[i].classList.remove("active");
+    }
+    
+    // Remover classe "active" de todos os botões de abas de gráficos do painel de projetos
+    const chartTabBtns = document.querySelectorAll("#graficosProjetos .chart-tab-btn");
     for (let i = 0; i < chartTabBtns.length; i++) {
         chartTabBtns[i].classList.remove("active");
     }
