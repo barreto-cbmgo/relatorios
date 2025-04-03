@@ -10,7 +10,8 @@ let dadosProcessados = {
     tiposVistoria: {},
     statusAndamento: {},
     tendenciaTemporal: {},
-    producaoPorResponsavel: {}
+    producaoPorResponsavel: {},
+    protocolosPorResponsavel: {} // Novo objeto para armazenar os protocolos atendidos por cada responsável
 };
 
 // Referências aos gráficos
@@ -261,17 +262,17 @@ function analisarDados(dados) {
     
     // Resetar dados processados
     dadosProcessados = {
-        totalRegistros: 4289,
-        totalProtocolos: 640,
-        vistoriasRealizadas: 640,
+        totalRegistros: 0,
+        totalProtocolos: 0,
+        vistoriasRealizadas: 0,
         vistoriasPendentes: 0,
         responsaveis: [],
         responsaveisSemUsuario: 0,
         potenciaisResponsaveis: [],
         tiposVistoria: {
-            "VISTORIA PARA FUNCIONAMENTO": 3171,
-            "VISTORIA PARA HABITE-SE": 783,
-            "FISCALIZAÇÃO": 292
+            "VISTORIA PARA FUNCIONAMENTO": 0,
+            "VISTORIA PARA HABITE-SE": 0,
+            "FISCALIZAÇÃO": 0
         },
         statusAndamento: {},
         tendenciaTemporal: {
@@ -282,7 +283,7 @@ function analisarDados(dados) {
     };
 
     // Total de registros
-    // dadosProcessados.totalRegistros = dados.length;
+    dadosProcessados.totalRegistros = dados.length;
 
     // Filtrando apenas registros de vistoria
     const registrosVistoria = dados.filter(row => isVistoria(row.SERVICO));
@@ -318,7 +319,7 @@ function analisarDados(dados) {
         });
     });
 
-    // dadosProcessados.totalProtocolos = Object.keys(protocolosAgrupados).length;
+    dadosProcessados.totalProtocolos = Object.keys(protocolosAgrupados).length;
     console.log("Protocolos únicos identificados:", dadosProcessados.totalProtocolos);
 
     // Para cada protocolo, identificar as vistorias realizadas
@@ -345,16 +346,17 @@ function analisarDados(dados) {
         }
     });
 
-    // dadosProcessados.vistoriasRealizadas = Object.keys(protocolosRealizados).length;
-    // dadosProcessados.vistoriasPendentes = dadosProcessados.totalProtocolos - dadosProcessados.vistoriasRealizadas;
+    dadosProcessados.vistoriasRealizadas = Object.keys(protocolosRealizados).length;
+    dadosProcessados.vistoriasPendentes = dadosProcessados.totalProtocolos - dadosProcessados.vistoriasRealizadas;
     console.log("Vistorias realizadas:", dadosProcessados.vistoriasRealizadas);
     console.log("Vistorias pendentes:", dadosProcessados.vistoriasPendentes);
 
     // Contagem de vistorias por responsável
     const vistoriasPorResponsavel = {};
     const vistoriasPorTipoEResponsavel = {};
+    dadosProcessados.protocolosPorResponsavel = {}; // Reiniciar o objeto de protocolos por responsável
     
-    Object.values(protocolosRealizados).forEach(registro => {
+    Object.entries(protocolosRealizados).forEach(([protocolo, registro]) => {
         const responsavel = registro.USUARIO;
         const servico = registro.SERVICO;
         const tipoVistoria = getTipoVistoria(servico);
@@ -374,8 +376,25 @@ function analisarDados(dados) {
         
         vistoriasPorTipoEResponsavel[responsavel][tipoVistoria]++;
         
+        // Armazenar informações de protocolo por responsável, agrupando por tipo de vistoria
+        if (!dadosProcessados.protocolosPorResponsavel[responsavel]) {
+            dadosProcessados.protocolosPorResponsavel[responsavel] = {
+                "VISTORIA PARA FUNCIONAMENTO": [],
+                "VISTORIA PARA HABITE-SE": [],
+                "FISCALIZAÇÃO": []
+            };
+        }
+        
+        // Adicionar o protocolo à lista correspondente ao tipo de vistoria
+        dadosProcessados.protocolosPorResponsavel[responsavel][tipoVistoria].push({
+            protocolo: protocolo,
+            servico: servico,
+            data: registro.DATA_SERVICO,
+            dataObj: parseDataBR(registro.DATA_SERVICO) // Adicionar objeto Date para ordenação posterior
+        });
+        
         // Contabiliza para estatísticas de tipo de vistoria
-        // dadosProcessados.tiposVistoria[tipoVistoria]++;
+        dadosProcessados.tiposVistoria[tipoVistoria]++;
     });
 
     // Organizar responsáveis em um array com contagem e detalhes
@@ -542,13 +561,92 @@ function renderizarRelatorio() {
     // O filtro foi removido porque já filtramos o array de responsáveis anteriormente
     dadosProcessados.responsaveis.forEach(resp => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${resp.responsavel}</td>
-            <td>${resp.total}</td>
-            <td>${resp.funcionamento}</td>
-            <td>${resp.habitese}</td>
-            <td>${resp.fiscalizacao}</td>
-        `;
+        
+        // Verificar se temos dados de protocolos para este responsável
+        const temProtocolos = dadosProcessados.protocolosPorResponsavel[resp.responsavel] &&
+            (dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA FUNCIONAMENTO"].length > 0 ||
+             dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA HABITE-SE"].length > 0 ||
+             dadosProcessados.protocolosPorResponsavel[resp.responsavel]["FISCALIZAÇÃO"].length > 0);
+        
+        if (temProtocolos) {
+            // Construir o conteúdo do tooltip com os protocolos por tipo
+            // Ordenar cada lista de protocolos por data (mais recentes primeiro)
+            const sortProtocosByDate = (protocolos) => {
+                return [...protocolos].sort((a, b) => {
+                    if (!a.dataObj && !b.dataObj) return 0;
+                    if (!a.dataObj) return 1; // Sem data vai para o final
+                    if (!b.dataObj) return -1; // Sem data vai para o final
+                    return b.dataObj - a.dataObj; // Ordem decrescente (mais recente primeiro)
+                });
+            };
+            
+            const protocolosFuncionamento = sortProtocosByDate(dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA FUNCIONAMENTO"]);
+            const protocolosHabitese = sortProtocosByDate(dadosProcessados.protocolosPorResponsavel[resp.responsavel]["VISTORIA PARA HABITE-SE"]);
+            const protocolosFiscalizacao = sortProtocosByDate(dadosProcessados.protocolosPorResponsavel[resp.responsavel]["FISCALIZAÇÃO"]);
+            
+            const tooltipContent = `
+                <div class="tooltip-title">Protocolos Atendidos por ${resp.responsavel}</div>
+                <div class="tooltip-summary">
+                    <strong>Total:</strong> ${resp.total} protocolos | 
+                    <strong>Funcionamento:</strong> ${resp.funcionamento} | 
+                    <strong>Habite-se:</strong> ${resp.habitese} | 
+                    <strong>Fiscalização:</strong> ${resp.fiscalizacao}
+                </div>
+                
+                ${protocolosFuncionamento.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Vistorias para Funcionamento (${protocolosFuncionamento.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosFuncionamento.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${protocolosHabitese.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Vistorias para Habite-se (${protocolosHabitese.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosHabitese.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+                
+                ${protocolosFiscalizacao.length > 0 ? `
+                <div class="protocol-group">
+                    <div class="protocol-group-title">Fiscalizações (${protocolosFiscalizacao.length})</div>
+                    <ul class="protocol-list">
+                        ${protocolosFiscalizacao.map(p => `
+                            <li class="protocol-item">${p.protocolo}: ${p.servico} ${p.data ? `(${p.data})` : ''}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            `;
+            
+            tr.innerHTML = `
+                <td class="tooltip-trigger">
+                    ${resp.responsavel}
+                    <div class="tooltip-content">${tooltipContent}</div>
+                </td>
+                <td>${resp.total}</td>
+                <td>${resp.funcionamento}</td>
+                <td>${resp.habitese}</td>
+                <td>${resp.fiscalizacao}</td>
+            `;
+        } else {
+            tr.innerHTML = `
+                <td>${resp.responsavel}</td>
+                <td>${resp.total}</td>
+                <td>${resp.funcionamento}</td>
+                <td>${resp.habitese}</td>
+                <td>${resp.fiscalizacao}</td>
+            `;
+        }
+        
         responsaveisBody.appendChild(tr);
     });
 
@@ -1032,3 +1130,4 @@ function openChartTab(evt, tabName) {
     document.getElementById(tabName).classList.add("active");
     evt.currentTarget.classList.add("active");
 }
+
